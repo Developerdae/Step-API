@@ -20,7 +20,7 @@ app.get('/auth', (req, res) => {
     access_type: 'offline',
     scope: ['https://www.googleapis.com/auth/fitness.activity.read']
   })
-
+  // Redirect the user to the Google authentication page
   res.redirect(authUrl)
 })
 
@@ -36,27 +36,33 @@ app.get('/callback', async (req, res) => {
 app.get('/steps', async (req, res) => {
   try {
     const accessToken = req.query.access_token
-
-    // Use the provided access token for authentication
+    // The provided access token is used for authentication
     oAuth2Client.setCredentials({ access_token: accessToken })
 
+    // Make an API request to Google Fit API to retrieve steps data
+    // Use oAuth2Client for authorization
     const fitness = google.fitness('v1')
     const response = await fitness.users.dataset.aggregate({
       userId: 'me',
       requestBody: {
         aggregateBy: [{ dataTypeName: 'com.google.step_count.delta' }],
         bucketByTime: { durationMillis: 86400000 }, // 24 hours
-        startTimeMillis: Date.now() - 7 * 24 * 60 * 60 * 1000, // 7 days ago
+        startTimeMillis: Date.now() - 24 * 60 * 60 * 1000, // calculation equivalent to 1 day
         endTimeMillis: Date.now()
       },
       auth: oAuth2Client
     })
+
+    // Extract the steps data from the response
     const stepsData =
       response.data.bucket[0].dataset[0].point[0].value[0].intVal
+
+    // Send the steps data as a JSON response
     res.json({ steps: stepsData })
+    res.redirect(`127.0.0.1:5500?access_token=${tokens.access_token}`)
   } catch (error) {
     console.error('Error retrieving steps data:', error.message)
-    res.status(500).json({ error: 'Error retrieving steps data' })
+    res.status(500).json({ error: 'Sorry, no steps data available' })
   }
 })
 
